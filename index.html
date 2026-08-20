@@ -1035,7 +1035,7 @@ function renderAjustes(){
         ${PALETTE.map(pl=>`<option value="${pl.hex}" ${c.color===pl.hex?'selected':''}>${pl.name}</option>`).join('')}
       </select>
     </div>`).join('')}</div>`;
-  h+=`<div class="card"><button class="btn btn-ghost" style="width:100%" onclick="if(confirm('¿Reiniciar todos los datos?')){localStorage.clear();location.reload();}">Reiniciar datos</button></div>`;
+  h+=`<div class="card"><button class="btn btn-ghost" style="width:100%" onclick="if(confirm('¿Reiniciar todos los datos?')){Object.keys(localStorage).filter(k=>k.startsWith('pg_')).forEach(k=>localStorage.removeItem(k));location.reload();}">Reiniciar datos</button></div>`;
   document.getElementById('scr-ajustes').innerHTML=h;
 }
 function cambiarColorCategoria(catId,hex){
