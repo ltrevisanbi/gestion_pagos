@@ -34,6 +34,7 @@
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;padding:0}
+html{zoom:.85}
 body{font-family:var(--font-body);background:var(--bg);color:var(--text);font-size:16px;line-height:1.5;
   padding-bottom:calc(40px + env(safe-area-inset-bottom));}
 h1,h2,h3,h4{font-family:var(--font-heading);font-weight:400;letter-spacing:-.015em}
@@ -594,37 +595,43 @@ function pieChart(items){
     const pct=total?Math.round(x.monto/total*100):0;
     const tituloHover=`${x.cat.nombre} (${pct}%): `+x.detalle.map(d=>`${d.nombre} ${money(d.monto)??(d.tipoMonto==='variable'?'Variable':'-')}`).join(', ');
     return `<path d="${pieSlicePath(cx,cy,r,start,end)}" fill="${x.cat.color}" class="pie-slice"
-      onclick="pieTooltipAt(${i})"><title>${esc(tituloHover)}</title></path>`;
+      onclick="pieTooltipAt(${i},event)"><title>${esc(tituloHover)}</title></path>`;
   }).join('');
   return `<svg width="200" height="200" viewBox="0 0 200 200" style="flex:0 0 auto">${slices}</svg>`;
 }
-function pieTooltipAt(i){
+function pieTooltipAt(i,ev){
   const x=PIE_TIP_DATA[i]; if(!x) return;
   const total=PIE_TIP_DATA.reduce((a,y)=>a+y.monto,0);
   const pct=total?Math.round(x.monto/total*100):0;
   const filas=x.detalle.slice().sort((a,b)=>(b.monto||0)-(a.monto||0)).map(d=>
     `<div class="flex-between" style="padding:3px 0;gap:10px"><span>${esc(d.nombre)}</span><span style="font-weight:700;white-space:nowrap">${money(d.monto)??(d.tipoMonto==='variable'?'Variable':'-')}</span></div>`
   ).join('');
-  pieTooltip(`${esc(x.cat.nombre)} · ${money(x.monto)} (${pct}%)`,filas);
+  pieTooltip(`${esc(x.cat.nombre)} · ${money(x.monto)} (${pct}%)`,filas,ev);
 }
 let PIE_TIP_OUTSIDE_HANDLER=null;
-function pieTooltip(titulo,filasHtml){
+function pieTooltip(titulo,filasHtml,ev){
   const old=document.getElementById('pieTip'); if(old) old.remove();
   if(PIE_TIP_OUTSIDE_HANDLER){ document.removeEventListener('click',PIE_TIP_OUTSIDE_HANDLER,true); PIE_TIP_OUTSIDE_HANDLER=null; }
   const d=document.createElement('div');
   d.id='pieTip';
-  d.innerHTML=`<b>${titulo}</b><div style="margin-top:6px;max-height:180px;overflow-y:auto">${filasHtml}</div>`;
-  d.style.cssText='position:fixed;left:16px;right:16px;bottom:90px;background:var(--surface);color:var(--text);'+
-    'border:1px solid var(--border);padding:14px 16px;border-radius:16px;font-size:13px;z-index:99;box-shadow:var(--shadow)';
+  d.innerHTML=`<b style="color:var(--primary-ink)">${titulo}</b><div style="margin-top:6px;max-height:160px;overflow-y:auto">${filasHtml}</div>`;
+  const W=200;
+  const px=ev&&typeof ev.clientX==='number'?ev.clientX:window.innerWidth/2;
+  const py=ev&&typeof ev.clientY==='number'?ev.clientY:window.innerHeight/2;
+  let left=px+14; if(left+W+12>window.innerWidth) left=px-W-14; if(left<12) left=12;
+  let top=py-10;
+  d.style.cssText=`position:fixed;left:${left}px;top:${top}px;width:${W}px;max-width:calc(100vw - 24px);background:var(--primary-strong);color:var(--primary-ink);`+
+    'border:none;padding:10px 12px;border-radius:14px;font-size:11.5px;z-index:99;box-shadow:var(--shadow)';
+  document.body.appendChild(d);
+  const rect=d.getBoundingClientRect();
+  if(rect.bottom>window.innerHeight-12) d.style.top=Math.max(12,window.innerHeight-12-rect.height)+'px';
+  if(rect.top<12) d.style.top='12px';
   const cerrar=()=>{
     d.remove();
     if(PIE_TIP_OUTSIDE_HANDLER){ document.removeEventListener('click',PIE_TIP_OUTSIDE_HANDLER,true); PIE_TIP_OUTSIDE_HANDLER=null; }
   };
   d.onclick=cerrar;
-  document.body.appendChild(d);
   setTimeout(()=>{ if(document.getElementById('pieTip')===d) cerrar(); },6000);
-  // Se cierra también al tocar en cualquier otro lado de la pantalla (se activa recién
-  // después de este mismo toque, para no cerrarse instantáneamente al abrirse).
   PIE_TIP_OUTSIDE_HANDLER=(e)=>{ if(!d.contains(e.target)) cerrar(); };
   setTimeout(()=>document.addEventListener('click',PIE_TIP_OUTSIDE_HANDLER,true),0);
 }
@@ -951,8 +958,9 @@ function irAAcceso(gastoId){
   },300);
 }
 function accesoTieneDatos(acceso){return !!(acceso&&(acceso.url||acceso.usuario||acceso.clave||acceso.referencia||(acceso.referencias&&acceso.referencias.length)))}
-function accesoCard(nombre,catHtml,medioPago,acceso,id){
-  let h=`<div class="card"${id?` id="acc-${id}"`:''}><div class="flex-between"><b>${esc(nombre)}</b>${catHtml}</div>`;
+function accesoCard(nombre,catHtml,medioPago,acceso,id,esExtra){
+  let h=`<div class="card"${id?` id="acc-${id}"`:''}><div class="flex-between"><b>${esc(nombre)}</b>`+
+    `<div style="display:flex;align-items:center;gap:8px">${catHtml}<button class="rowbtn" title="Editar acceso" onclick="abrirFormAcceso('${id}',${esExtra?'true':'false'})">✏️</button></div></div>`;
   if(medioPago) h+=`<div class="muted small" style="margin:4px 0 8px">${esc(medioPago)}</div>`;
   if(acceso.url) h+=`<div class="copyval"><span>${esc(acceso.url)}</span><button class="copybtn" onclick="window.open('${esc(acceso.url)}','_blank')">Abrir</button></div>`;
   if(acceso.usuario) h+=`<div class="copyval"><span>👤 ${esc(acceso.usuario)}</span><button class="copybtn" onclick="copy('${esc(acceso.usuario)}')">Copiar</button></div>`;
@@ -964,6 +972,51 @@ function accesoCard(nombre,catHtml,medioPago,acceso,id){
   h+='</div>';
   return h;
 }
+function refRowHtml(label,valor){
+  return `<div class="row refrow" style="gap:8px;margin:6px 0;align-items:center">
+    <input class="rLabel" style="flex:1" value="${esc(label||'')}" placeholder="Ej: Partida">
+    <input class="rValor" style="flex:1" value="${esc(valor||'')}" placeholder="Valor">
+    <button type="button" class="rowbtn" onclick="this.closest('.refrow').remove()" title="Quitar">✕</button>
+  </div>`;
+}
+function agregarRefRow(){
+  const list=document.getElementById('aRefsList');
+  if(list) list.insertAdjacentHTML('beforeend',refRowHtml('',''));
+}
+function abrirFormAcceso(id,esExtra){
+  const item=esExtra?(state.accesosExtra||[]).find(a=>a.id===id):gastoOf(id);
+  if(!item) return;
+  const acceso=item.acceso||{};
+  const refs=acceso.referencias?acceso.referencias.slice():(acceso.referencia?[{label:'Referencia',valor:acceso.referencia}]:[]);
+  let h=`<h3>Editar acceso</h3>
+    <div class="muted small" style="margin-bottom:10px">${esc(item.nombre)}</div>
+    <label>URL</label><input id="aUrl" value="${esc(acceso.url||'')}" placeholder="https://...">
+    <label>Usuario</label><input id="aUsuario" value="${esc(acceso.usuario||'')}">
+    <label>Contraseña</label><input id="aClave" value="${esc(acceso.clave||'')}">
+    <div class="section-title">Referencias / notas</div>
+    <div id="aRefsList">${refs.map(r=>refRowHtml(r.label,r.valor)).join('')}</div>
+    <button type="button" class="btn btn-ghost" style="width:100%;margin-top:4px" onclick="agregarRefRow()">+ Agregar referencia</button>
+    <button class="btn btn-primary" style="width:100%;margin-top:14px" onclick="guardarAcceso('${id}',${esExtra?'true':'false'})">Guardar</button>`;
+  openSheet(h);
+}
+function guardarAcceso(id,esExtra){
+  const item=esExtra?(state.accesosExtra||[]).find(a=>a.id===id):gastoOf(id);
+  if(!item) return;
+  const url=document.getElementById('aUrl').value.trim();
+  const usuario=document.getElementById('aUsuario').value.trim();
+  const clave=document.getElementById('aClave').value.trim();
+  const referencias=[...document.querySelectorAll('#aRefsList .refrow')].map(row=>({
+    label:row.querySelector('.rLabel').value.trim(),
+    valor:row.querySelector('.rValor').value.trim()
+  })).filter(r=>r.label||r.valor);
+  const acceso={};
+  if(url) acceso.url=url;
+  if(usuario) acceso.usuario=usuario;
+  if(clave) acceso.clave=clave;
+  if(referencias.length) acceso.referencias=referencias;
+  item.acceso=acceso;
+  save();history.back();renderAccesos();toast('Datos de acceso guardados');
+}
 function renderAccesos(){
   const conAcceso=gastosActivos().filter(g=>accesoTieneDatos(g.acceso));
   const extra=(state.accesosExtra||[]).filter(a=>a.activo!==false&&accesoTieneDatos(a.acceso));
@@ -972,11 +1025,11 @@ function renderAccesos(){
   conAcceso.forEach(g=>{
     const cat=catOf(g.categoriaId);
     const catHtml=`<span class="small muted"><span style="color:${cat.color}">●</span> ${esc(cat.nombre)}</span>`;
-    html+=accesoCard(g.nombre,catHtml,g.medioPago,g.acceso,g.id);
+    html+=accesoCard(g.nombre,catHtml,g.medioPago,g.acceso,g.id,false);
   });
   if(extra.length){
     html+=`<div class="section-title">Otros accesos</div>`;
-    extra.forEach(a=>{ html+=accesoCard(a.nombre,'',a.medioPago,a.acceso,a.id); });
+    extra.forEach(a=>{ html+=accesoCard(a.nombre,'',a.medioPago,a.acceso,a.id,true); });
   }
   document.getElementById('scr-accesos').innerHTML=html;
 }
