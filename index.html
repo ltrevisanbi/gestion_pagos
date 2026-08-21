@@ -86,13 +86,14 @@ main{padding:16px;max-width:680px;margin:0 auto}
   padding:8px 16px;border-radius:999px;font-size:13px;font-weight:600;cursor:pointer;transition:background .15s}
 .chip:hover{background:color-mix(in srgb,var(--primary) 10%,var(--surface))}
 .chip.active{background:var(--primary);color:var(--primary-ink);border-color:var(--primary)}
+#scr-gastos{zoom:.925}
 .gasto-row{display:flex;align-items:center;gap:12px;padding:13px 0;border-bottom:1px solid var(--border);cursor:pointer}
 .gasto-row:last-child{border-bottom:none}
 .gasto-row .dot{width:8px;height:8px;border-radius:50%;flex:0 0 auto}
 .gasto-row .info{flex:1;min-width:0}
 .gasto-row .nombre{font-weight:700;font-size:15px}
 .gasto-row .meta{font-size:12px;color:var(--muted)}
-.gasto-row .monto{font-weight:700;font-size:13.5px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.gasto-row .monto{font-weight:700;font-size:13.5px;font-variant-numeric:tabular-nums;white-space:nowrap;margin-left:-6px}
 .rowbtn{flex:0 0 auto;width:32px;height:32px;border-radius:50%;background:var(--surface2);border:1px solid var(--border);
   display:grid;place-items:center;font-size:13px;cursor:pointer;padding:0}
 .rowbtn:hover{background:color-mix(in srgb,var(--primary) 16%,var(--surface2))}
@@ -554,7 +555,7 @@ function renderResumen(){
     ${barChartGastos(p)}
   </div>`;
   html+=`<div class="row" style="margin-top:4px">
-    <button class="btn btn-ghost" style="flex:1" onclick="navTo('gastos')">💸 Ver gastos del mes</button>
+    <button class="btn btn-ghost" style="flex:1" onclick="navTo('gastos')">💸 Gastos del mes</button>
     <button class="btn btn-ghost" style="flex:1" onclick="navTo('historico')">📈 Ver histórico</button>
   </div>`;
   document.getElementById('scr-resumen').innerHTML=html;
