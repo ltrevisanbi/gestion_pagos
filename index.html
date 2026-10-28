@@ -1076,6 +1076,55 @@ async function compartirConExcel(){
 }
 
 // ====== AJUSTES ======
+// ====== RESPALDO COMPLETO (JSON) ======
+// Guarda/restaura TODAS las claves de la app (las que empiezan con "pg_"), sin el prefijo.
+function exportarRespaldo(){
+  const datos={};
+  Object.keys(localStorage).filter(k=>k.startsWith('pg_')).forEach(k=>{
+    try{ datos[k.slice(3)]=JSON.parse(localStorage.getItem(k)); }catch(e){}
+  });
+  const hoy=new Date(), pad=n=>String(n).padStart(2,'0');
+  const fecha=`${hoy.getFullYear()}-${pad(hoy.getMonth()+1)}-${pad(hoy.getDate())}`;
+  const out={app:'pagos-personales',formato:1,fecha:hoy.toISOString(),datos};
+  const blob=new Blob([JSON.stringify(out)],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;a.download=`respaldo_pagos_${fecha}.json`;
+  document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),4000);
+  toast('Respaldo descargado');
+}
+function importarRespaldo(event){
+  const file=event.target.files[0];
+  event.target.value='';
+  if(!file) return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    let obj;
+    try{ obj=JSON.parse(e.target.result); }catch(err){ return toast('No se pudo leer ese archivo'); }
+    const d=obj&&obj.app==='pagos-personales'&&obj.datos;
+    if(!d) return toast('Ese archivo no es un respaldo de esta app');
+    if(!['categorias','gastos','registros','ingresos','periodos'].every(k=>Array.isArray(d[k]))||!d.periodos.length)
+      return toast('El respaldo está incompleto o dañado');
+    if(!Array.isArray(d.accesosExtra)) d.accesosExtra=[];
+    if(!d.periodos.includes(d.viewPeriodo)) d.viewPeriodo=d.periodos[d.periodos.length-1];
+    if(!confirm(`Se van a REEMPLAZAR todos los datos actuales por los del respaldo (${d.gastos.length} gastos, ${d.periodos.length} meses). ¿Continuar?`)) return;
+    // Copia de lo actual: si algo falla al escribir, se restaura.
+    const previo={};
+    Object.keys(localStorage).filter(k=>k.startsWith('pg_')).forEach(k=>{previo[k]=localStorage.getItem(k)});
+    try{
+      Object.keys(previo).forEach(k=>localStorage.removeItem(k));
+      Object.keys(d).forEach(k=>{ if(k!=='seedVersion') localStorage.setItem('pg_'+k,JSON.stringify(d[k])); });
+      localStorage.setItem('pg_seedVersion',JSON.stringify(SEED_VERSION));
+    }catch(err){
+      Object.keys(localStorage).filter(k=>k.startsWith('pg_')).forEach(k=>localStorage.removeItem(k));
+      Object.entries(previo).forEach(([k,v])=>localStorage.setItem(k,v));
+      return toast('No se pudo importar; se conservaron tus datos actuales');
+    }
+    location.reload();
+  };
+  reader.readAsText(file);
+}
+
 function renderAjustes(){
   let h=`<div class="section-title">🔐 Seguridad</div><div class="card">
     <button class="btn btn-ghost" onclick="abrirCambioPin()">Cambiar PIN</button>
@@ -1092,6 +1141,13 @@ function renderAjustes(){
         ${PALETTE.map(pl=>`<option value="${pl.hex}" ${c.color===pl.hex?'selected':''}>${pl.name}</option>`).join('')}
       </select>
     </div>`).join('')}</div>`;
+  h+=`<div class="section-title">💾 Respaldo</div><div class="card">
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-ghost" style="flex:1" onclick="exportarRespaldo()">⬇️ Exportar respaldo</button>
+      <button class="btn btn-ghost" style="flex:1" onclick="document.getElementById('inputImportarRespaldo').click()">⬆️ Importar respaldo</button>
+    </div>
+    <input type="file" id="inputImportarRespaldo" accept=".json,application/json" style="display:none" onchange="importarRespaldo(event)">
+    <div class="note">Exporta todos los datos de la app en un solo archivo. Al importar, se reemplazan los datos actuales por los del archivo.</div></div>`;
   h+=`<div class="card"><button class="btn btn-ghost" style="width:100%" onclick="if(confirm('¿Reiniciar todos los datos?')){Object.keys(localStorage).filter(k=>k.startsWith('pg_')).forEach(k=>localStorage.removeItem(k));location.reload();}">Reiniciar datos</button></div>`;
   document.getElementById('scr-ajustes').innerHTML=h;
 }
